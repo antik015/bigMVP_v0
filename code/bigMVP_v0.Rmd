@@ -1,0 +1,85 @@
+---
+title: "bigMVP"
+author: "Antik Chakraborty"
+date: "2023-09-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### A reproducible code to generate left panel of Figure 1 from the manuscript 
+
+Before getting into the code we first want to make the reader aware that this code will reproduce a close approximation to Figure 1 due to Monte Carlo variations. Nonetheless, the simple examples illustrate how simple it is to use the package and its main functions. We start by defining the data dimensions where $n$ is the sample size, $p$ is the number of covariates and $q$ is the number of binary responses observed.
+```{r dimensions}
+library(bigMVP)
+n = 500
+p = 2
+q = 4
+
+```
+
+Next, we generate the matrix of covariates $X \in \mathbb{R}^{n \times p}$ drawing its elements independently from $\mathrm{N}(0,1)$. We define the true correlation matrix as $\Sigma_T = (1 -\rho_T)\mathrm{I}_q + \rho_T \bf{1}\bf{1}' $ for some $\rho_T \in (0,1)$. The elements of the true regression coefficients $B_T \in \mathbb{R}^{p \times q}$ are also drawn from the standard Normal distribution independently. To simulate the i-th latent variable we sample $z_{T,i} \sim \mathrm{N}(B_T'x_i, \Sigma_T)$. Finally, the corresponding binary observations $y_i$ is defined as $y_{ij} = \mathrm{I}(z_{T, ij} \geq 0)$.
+
+```{r data}
+X = matrix(rnorm(n*p), n, p)
+rhoT = 0.5
+SigT = (1-rhoT)*matrix(1, q, q) + rhoT*diag(q)
+chol_SigT = chol(SigT)
+betaT = matrix(rnorm((p+1)*q), p+1, q)
+Z_T = cbind(1, X)%*%betaT + matrix(rnorm(n*q), n, q)%*%chol_SigT
+Y = matrix(0, n, q)
+Y[Z_T>0] = 1
+```
+
+
+We are now ready to implement the bigMVP approximations. We would also like to compare the results with the MCMC approximation to the posterior. In the next code chunk we define the hyperparameters. We recommend referring to the relevant function help pages for a clear definition of each of the hyperparameters.
+
+```{r hyper}
+prior_var = 25
+max_it = 100
+epsilon = 0.0001
+m = 15
+
+eta0 = rep(0, p+1)
+nu0 = 0.001
+gamma0 = p+1
+Lambda0 = diag(p+1)
+eta0_rho = 0
+nu0_rho = 0.01
+gamma0_rho = 0.01
+nu = 1
+lambda0_sq_rho = 0.01
+nmcmc = 5000
+burnin = 1000
+```
+
+Run the bigMVP and MCMC approximations.
+
+```{r approx}
+res1 = bigMVP(Y, X, prior_var, max_it, epsilon, m) 
+
+res_mcmc_lkj = mvp_mcmc_lkj(Y, X, nu, nmcmc, burnin, prior_var)
+```
+
+```{r process_results}
+j = 1
+k = 2
+post_samples = rep(0, nmcmc - burnin)
+for(i in 1:(nmcmc - burnin))
+{
+  post_samples[i] = res_mcmc_lkj$S_samples[j, k, i]
+}
+rho_hat = res1$post_mean[j,k]
+rho_var = res1$post_var[j,k]
+d1 = density(post_samples)
+df = data.frame(Correlation = rep(d1$x, 2), Density = c(d1$y, dnorm(d1$x, rho_hat, sqrt(rho_var))), Type = c(rep("MCMC", length(d1$x)), rep("bigMVP", length(d1$x))))
+
+library(ggplot2)
+My_Theme = theme(axis.title.x = element_text(size = 22),axis.text.x = element_text(size = 18),
+                 axis.title.y = element_text(size = 22), axis.text.y = element_text(size = 18), 
+                 legend.text = element_text(size = 22), legend.title = element_text(size = 22), plot.title = element_text(size = 22))
+pl1 = ggplot(df) + geom_line(aes(x = Correlation, y = Density, color = Type, linetype = Type), size = 1.2 ) + ggtitle("n = 200, q = 4") + geom_vline(xintercept = 0.5, size = 1.2) + theme_classic() + My_Theme
+pl1
+```
