@@ -16,7 +16,7 @@ To isntall the R package bigMVP, first install the package "devtools" in R. Then
 A brief overview of the materials of this repository with directions to use is provided below.
 
 ### manuscript
-The manuscript folder contains the zip files "Main draft source.zip" and "Online supplement.zip". These zip files contain all the latex source files. figures and bib files to reproduce the the main draft and the online supplement, respectively.
+The manuscript folder contains the zip files "Main draft source.zip" and "Online supplement.zip". These zip files contain all the latex source files, figures and bib files to reproduce the the main draft and the online supplement, respectively.
 
 ### code
 
@@ -24,4 +24,4 @@ The folder code contains two .Rmd files - bigMVP.Rmd and real_data. Rmd. The big
 
 ### data
 
-This folder contains the bird and vegetation data that were analyzed in the manuscript. For the bird data the relevant files are "Xt_1_bird.csv" and "Yt_1_bird.csv" and similar names are used for the vegetation. Please download these files on your computer and set the R path to the correct folder to run the real_data.Rmd file.
+This folder contains the bird and vegetation data that were analyzed in the manuscript. For the bird data the relevant files are "Xt_1_bird.csv" and "Yt_1_bird.csv" and similar names are used for the vegetation. The subscriot "t" stands for training in the filesnames. Two separate validation files are also provided. Please download these files on your computer and set the R path to the correct folder to run the real_data.Rmd file.
