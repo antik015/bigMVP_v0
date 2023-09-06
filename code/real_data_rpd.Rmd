@@ -1,0 +1,168 @@
+---
+title: "Read data"
+author: "Antik Chakraborty"
+date: "2023-09-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+---
+title: "Real data"
+author: "Antik Chakraborty"
+date: "4/16/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries}
+library(sjSDM)
+library(bigMVP)
+```
+
+## Reading in bird data 
+```{r bird}
+X_bird = read.csv("Xt_1_birds.csv", header = F)
+head(X_bird)
+Y_bird = read.csv("Yt_1_birds.csv", header = F)
+dim(Y_bird)
+```
+
+## Reading in vegetation data 
+```{r bird}
+X_veg = read.csv("Xt_1_vegetation.csv", header = F)
+head(X_veg)
+Y_veg = read.csv("Yt_1_vegetation.csv", header = F)
+dim(Y_veg)
+```
+
+## Results for bird data
+```{r bird_results}
+n = 600
+p = ncol(X_bird)
+X_bird = matrix(unlist(X_bird), n, p)
+q = ncol(Y_bird)
+Y_bird = matrix(unlist(Y_bird), n, q)
+eta0 = rep(0, p+1)
+nu0 = 0.001
+gamma0 = p+1
+Lambda0 = diag(p+1)
+eta0_rho = 0
+nu0_rho = 0.01
+gamma0_rho = 0.01
+lambda0_sq_rho = 0.01
+max_it = 100
+epsilon = 0.0001
+prior_var = 25
+m = 15
+nmcmc = 500
+burnin = 100
+#res1_bird = bigMVPh(Y_bird, X_bird, eta0, nu0, gamma0, Lambda0, eta0_rho, nu0_rho, gamma0_rho, lambda0_sq_rho, max_it, epsilon, m, nmcmc, burnin)
+res2_bird = bigMVP(Y_bird, X_bird, prior_var, max_it, epsilon,m)
+res3_bird = sjSDM(Y_bird, X_bird)
+B_bird = t(coef(res3_bird)[[1]])
+S_bird = getCov(res3_bird)
+
+```
+
+## Results for vegetation data
+```{r vegeation_results}
+n = 600
+p = ncol(X_veg)
+X_veg = matrix(unlist(X_veg), n, p)
+q = ncol(Y_veg)
+Y_veg = matrix(unlist(Y_veg), n, q)
+eta0 = rep(0, p+1)
+nu0 = 0.001
+gamma0 = p+1
+Lambda0 = diag(p+1)
+max_it = 100
+epsilon = 0.0001
+prior_var = 25
+m = 15
+nmcmc = 500
+burnin = 100
+#res1_veg = bigMVPh(Y_veg, X_veg, eta0, nu0, gamma0, Lambda0, eta0_rho, nu0_rho, gamma0_rho, lambda0_sq_rho, max_it, epsilon, m, nmcmc, burnin)
+res2_veg = bigMVP(Y_veg, X_veg, prior_var, max_it, epsilon, m)
+res3_veg= sjSDM(Y_veg, X_veg)
+B_veg = t(coef(res3_veg)[[1]])
+S_veg = getCov(res3_veg)
+
+```
+
+## data visualizations
+
+```{r visualizations}
+library(ggplot2)
+library(latex2exp)
+library(gridExtra)
+m1 = apply(Y_bird, 2, mean)
+m2 = apply(Y_veg, 2, mean)
+My_Theme = theme(axis.title.x = element_text(size = 22),axis.text.x = element_text(size = 22),
+                 axis.title.y = element_text(size = 22), axis.text.y = element_text(size = 22), 
+                 legend.text = element_text(size = 22), legend.title = element_text(size = 22), plot.title = element_text(size = 22))
+
+bird_prevalence = data.frame(Species = seq(1, 141), Prevalence = m1)
+veg_prevalence = data.frame(Species = seq(1, 242), Prevalence = m2)
+
+pl1 = ggplot(bird_prevalence) + geom_histogram(aes(x = Prevalence), binwidth = 0.05) + xlab("Mean prevalence") + My_Theme + ylab("Count") + ggtitle("Bird data")
+pl2 = ggplot(veg_prevalence) + geom_histogram(aes(x = Prevalence), binwidth = 0.05) + xlab("Mean prevalence") + My_Theme + ylab("Count") + ggtitle("Vegetation data")
+
+pl3 = grid.arrange(pl1, pl2, ncol = 2)
+pl3
+#ggsave(paste("species_prevalence", ".eps", sep = ""), plot = pl3, device = NULL, path = NULL,
+#       scale = 1, width = 8, height = 6, units = "in",
+#       dpi = 300, limitsize = TRUE)
+```
+
+```{r}
+My_Theme = theme(axis.title.x = element_text(size = 16),axis.text.x = element_text(size = 16),
+                 axis.title.y = element_text(size = 16), axis.text.y = element_text(size = 16), 
+                 legend.text = element_text(size = 16), legend.title = element_text(size = 16), plot.title = element_text(size = 16))
+```
+## Correlation comparison
+```{r correlation_bird}
+ind = upper.tri(res2_bird$post_mean)
+#corr_h = res1_bird$post_mean[ind]
+corr_nh = res2_bird$post_mean[ind]
+corr_ph = S_bird[ind]
+q = 141
+l = 0.5*q*(q-1)
+df1 = data.frame(Method = c(rep("bigMVP_nh", l), rep("sjSDM", l)), Correlations = c(corr_nh, corr_ph))
+df11 = data.frame(Corr1 = as.vector(corr_nh), Corr2 = as.vector(corr_ph))
+pl4 = ggplot(df11) + geom_point(aes(x = Corr1, y = Corr2)) + My_Theme + ggtitle("Estimated pairwise correlations \n for bird data") + xlab(TeX("$bigMVP$")) + ylab(TeX("$sjSDM$")) + geom_abline(slope = 1, intercept = 0)
+pl4
+```
+
+
+```{r correlation_bird}
+ind = upper.tri(res2_veg$post_mean)
+#corr_h = res1_veg$post_mean[ind]
+corr_nh = res2_veg$post_mean[ind]
+corr_ph = S_veg[ind]
+q = 242
+l = 0.5*q*(q-1)
+df2 = data.frame(Method = c( rep("bigMVP_nh", l), rep("sjSDM", l)), Correlations = c(corr_nh, corr_ph))
+df22 = data.frame(Corr1 = as.vector(corr_nh), Corr2 = as.vector(corr_ph))
+pl5 = ggplot(df22) + geom_point(aes(x = Corr1, y = Corr2)) + My_Theme + ggtitle("Estimated pairwise correlations \n for vegetation data") + xlab(TeX("$bigMVP$")) + ylab(TeX("$sjSDM$")) + geom_abline(slope = 1, intercept = 0)
+pl5
+```
+
+
+
+```{r}
+l = 141*6
+df3 = data.frame(Coef1 = as.vector(res2_bird$coefficients), Coef2 = as.vector(B_bird))
+pl7 = ggplot(df3) + geom_point(aes(x = Coef1, y = Coef2)) + xlab(TeX("$bigMVP$"))  + ylab("sjSDM") + ggtitle("Estimated coefficients\n for bird data")+My_Theme
+pl7
+pl8 = grid.arrange(pl4, pl5, pl7, ncol = 3)
+pl8
+#ggsave(paste("correlations_coefficients", ".eps", sep = ""), plot = pl8, device = NULL, path = NULL,
+#       scale = 1, width = 13, height = 8, units = "in",
+#       dpi = 300, limitsize = TRUE)
+```
